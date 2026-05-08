@@ -8,12 +8,15 @@ import { PrismaClient } from "@prisma/client";
 // =========================
 const prisma = new PrismaClient();
 const OUTPUT_FILE = path.resolve("./aviator-live-data.ndjson");
-const ML_FILE = path.resolve("./ml-dataset.ndjson"); // Naya file ML training ke liye
 
-// In-memory tracking for ML Features
+// In-memory ML Tracking
 let currentStreakType = "low";
 let currentStreakLength = 0;
-let historyQueue = []; // Last 5 rounds store karne ke liye
+let historyQueue = []; // Last 5 rounds for MA_5
+
+// Global Liquidity Tracking (Real-time updates)
+let currentActivePlayers = 0;
+let currentTotalBets = 0;
 
 // =========================
 // HELPERS
@@ -25,11 +28,11 @@ function sanitizeText(str) {
     .trim();
 }
 
-function appendData(file, data) {
-  fs.appendFileSync(file, JSON.stringify(data) + "\n");
+function appendData(data) {
+  fs.appendFileSync(OUTPUT_FILE, JSON.stringify(data) + "\n");
 }
 
-// Custom hex to double parser (Big-Endian IEEE 754)
+// Custom Hex Parsers
 function hexToDouble(hexString) {
   try {
     const buf = Buffer.from(hexString, "hex");
@@ -40,19 +43,19 @@ function hexToDouble(hexString) {
 }
 
 // =========================
-// DATABASE INGESTION & ML FEATURE ENGINE
+// DATABASE INGESTION ENGINE
 // =========================
-async function saveRoundToDatabase(multiplierData) {
+async function processAndSaveRound(crashData) {
   try {
-    const { ts, multiplier } = multiplierData;
+    const { ts, multiplier, players, betsCount } = crashData;
 
-    // 1. Calculate Prev Multiplier
+    // 1. Get Prev Multiplier
     const prevMultiplier = historyQueue.length > 0 ? historyQueue[historyQueue.length - 1] : null;
 
-    // 2. Calculate MA_5 (Moving Average of last 5)
+    // 2. Calculate MA_5
     historyQueue.push(multiplier);
     if (historyQueue.length > 5) {
-      historyQueue.shift(); // Purana data nikal do, sirf last 5 rakho
+      historyQueue.shift(); 
     }
     
     let ma5 = null;
@@ -61,7 +64,7 @@ async function saveRoundToDatabase(multiplierData) {
       ma5 = Number((sum / 5).toFixed(2));
     }
 
-    // 3. Calculate Streak Logic
+    // 3. Calculate Streak
     const isLow = multiplier < 2.0;
     const newStreakType = isLow ? "low" : "high";
 
@@ -69,27 +72,30 @@ async function saveRoundToDatabase(multiplierData) {
       currentStreakLength += 1;
     } else {
       currentStreakType = newStreakType;
-      currentStreakLength = 1; // Streak reset
+      currentStreakLength = 1;
     }
 
     const streakUnder2x = currentStreakType === "low" ? currentStreakLength : 0;
 
-    // 4. Update the JSON object with ML features before saving
+    // 4. Assemble the ULTIMATE ML Object
     const mlReadyData = {
+      type: "ws_round_crash",
       ts: ts,
       crash_multiplier: multiplier,
       prev_multiplier: prevMultiplier,
       streak_under_2x: streakUnder2x,
       ma_5: ma5,
-      // total_bets: null // Ise hum next step mein hex se nikalenge
+      active_players: players,
+      total_bets: betsCount
     };
 
-    console.log(`📊 [ML DATA] Prev: ${prevMultiplier || 'N/A'}x | Streak <2x: ${streakUnder2x} | MA_5: ${ma5 || 'calc...'} | CRASH: ${multiplier}x`);
+    console.log(`\n🚀 [CRASH DETECTED]: ${multiplier}x`);
+    console.log(`📊 [ML DATA] Prev: ${prevMultiplier || 'N/A'}x | MA_5: ${ma5 || 'calc...'} | Players: ${players} | Bets: ${betsCount}`);
 
-    // Save ML data to a separate JSON lines file
-    appendData(ML_FILE, mlReadyData);
+    // Save full ML structure to JSON file
+    appendData(mlReadyData);
 
-    // 5. Insert into PostgreSQL via Prisma
+    // 5. Save to PostgreSQL
     const savedRound = await prisma.round.create({
       data: {
         multiplier: multiplier,
@@ -98,10 +104,9 @@ async function saveRoundToDatabase(multiplierData) {
         streakType: currentStreakType,
         streakLength: currentStreakLength,
         createdAt: new Date(ts), 
-        players: null,
-        bets: null,
-        cashouts: null,
-        volatilityScore: 0 
+        players: players > 0 ? players : null,
+        bets: betsCount > 0 ? betsCount : null,
+        volatilityScore: ma5 ? ma5 : 0 
       },
     });
 
@@ -118,12 +123,19 @@ async function saveRoundToDatabase(multiplierData) {
 
   let browser;
   try {
-    browser = await chromium.connectOverCDP("http://localhost:9222");
+    // Cloud server ke liye headless launch
+    browser = await chromium.launch({
+      headless: true, // Server par UI nahi hota
+      args: [
+        '--no-sandbox', 
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage'
+      ] // Linux servers par Playwright chalane ke liye yeh args zaroori hain
+    });
   } catch (err) {
-    console.error("❌ Failed to connect to CDP. Is Chrome running with port 9222?");
+    console.error("❌ Failed to launch browser:", err);
     return;
   }
-
   const context = browser.contexts()[0];
   let page = context.pages()[0];
 
@@ -136,30 +148,6 @@ async function saveRoundToDatabase(multiplierData) {
     waitUntil: "domcontentloaded",
   });
 
-  // =========================
-  // METHOD 1: API INTERCEPTION
-  // =========================
-  page.on("response", async (response) => {
-    const url = response.url();
-    if (url.includes("spribe") || url.includes("api/history") || url.includes("crash")) {
-      try {
-        const body = await response.json();
-        
-        appendData(OUTPUT_FILE, {
-          type: "api_intercept",
-          ts: Date.now(),
-          url: url,
-          data: body,
-        });
-      } catch (e) {
-        // Not JSON, ignore silently
-      }
-    }
-  });
-
-  // =========================
-  // METHOD 2: WEBSOCKET HEX DECODING (UPDATED FOR CRASH POINT)
-  // =========================
   page.on("websocket", (ws) => {
     ws.on("framereceived", (payload) => {
       try {
@@ -169,94 +157,69 @@ async function saveRoundToDatabase(multiplierData) {
 
         const hexString = buffer.toString("hex");
         
-        // Hex representation of "maxMultiplier" -> 6d61784d756c7469706c696572
-        const crashKey = "6d61784d756c7469706c696572";
+        // ----------------------------------------------------
+        // EXTRACTION 1: LIVE LIQUIDITY (Players & Bets)
+        // ----------------------------------------------------
+        const playersKey = "616374697665506c6179657273436f756e74"; // "activePlayersCount"
+        const betsKey = "6f70656e42657473436f756e74"; // "openBetsCount"
+
+        if (hexString.includes(playersKey)) {
+          const idx = hexString.indexOf(playersKey) + playersKey.length;
+          // Spribe uses '04' as Int32 marker
+          if (hexString.substring(idx, idx + 2) === "04") {
+            const intHex = hexString.substring(idx + 2, idx + 10);
+            currentActivePlayers = parseInt(intHex, 16) || currentActivePlayers;
+          }
+        }
+
+        if (hexString.includes(betsKey)) {
+          const idx = hexString.indexOf(betsKey) + betsKey.length;
+          if (hexString.substring(idx, idx + 2) === "04") {
+            const intHex = hexString.substring(idx + 2, idx + 10);
+            currentTotalBets = parseInt(intHex, 16) || currentTotalBets;
+          }
+        }
+
+        // ----------------------------------------------------
+        // EXTRACTION 2: CRASH POINT
+        // ----------------------------------------------------
+        const crashKey = "6d61784d756c7469706c696572"; // "maxMultiplier"
 
         if (hexString.includes(crashKey)) {
           const keyIndex = hexString.indexOf(crashKey);
-          
-          // Move cursor past the "maxMultiplier" key
           const valueStart = keyIndex + crashKey.length;
-
-          // Grab the next 20 hex characters (10 bytes).
           const chunk = hexString.substring(valueStart, valueStart + 20);
 
-          // Type marker for double usually starts with '07'
           if (chunk.startsWith("07")) {
             const doubleHex = chunk.substring(2, 18);
             
             if (doubleHex.length === 16) {
               const decodedValue = hexToDouble(doubleHex);
 
-              // Filter out invalid data
               if (decodedValue && decodedValue >= 1 && decodedValue < 10000) {
                 const finalMultiplier = Number(decodedValue.toFixed(2));
                 
-                const obj = {
-                  type: "ws_round_crash",
+                const crashObject = {
                   ts: Date.now(),
-                  multiplier: finalMultiplier, // Keeping key as 'multiplier' for DB function compatibility
+                  multiplier: finalMultiplier,
+                  players: currentActivePlayers,
+                  betsCount: currentTotalBets
                 };
                 
-                console.log("🚀 [ACTUAL CRASH DETECTED]:", obj.multiplier + "x");
-                
-                // Save to JSON
-                appendData(OUTPUT_FILE, obj);
-                
-                // Process ML features & Save to Database
-                saveRoundToDatabase(obj);
+                // Process features and save!
+                processAndSaveRound(crashObject);
+
+                // Reset liquidity for the next round
+                currentActivePlayers = 0;
+                currentTotalBets = 0;
               }
             }
           }
         }
       } catch (e) {
-        // Ignore WS frame parsing errors to prevent console spam
+        // Ignore parsing errors
       }
     });
   });
-
-  // =========================
-  // METHOD 3: IFRAME DOM SCRAPING
-  // =========================
-  let lastExtractedMultiplier = null;
-
-  setInterval(async () => {
-    try {
-      const frames = page.frames();
-      const gameFrame = frames.find(
-        (f) => f.url().includes("spribe") || f.url().includes("aviator")
-      );
-
-      if (!gameFrame) return;
-
-      const multiplierText = await gameFrame.evaluate(() => {
-        const bubbles = document.querySelectorAll(".payouts-block .bubble, .multiplier-history div");
-        if (bubbles && bubbles.length > 0) {
-          return bubbles[0].innerText.trim();
-        }
-        return null;
-      });
-
-      if (!multiplierText) return;
-
-      if (/^\d+(\.\d+)?x$/i.test(multiplierText) && multiplierText !== lastExtractedMultiplier) {
-        lastExtractedMultiplier = multiplierText;
-        const cleanMultiplier = parseFloat(multiplierText.replace("x", ""));
-
-        const obj = {
-          type: "iframe_dom_multiplier",
-          ts: Date.now(),
-          multiplier: cleanMultiplier,
-        };
-
-        appendData(OUTPUT_FILE, obj);
-        // Note: Not saving Iframe data to DB to prevent duplicate entries, 
-        // since WS hex decoder is already capturing it perfectly.
-        // console.log("🎯 IFRAME LIVE:", obj); // Commented out to keep terminal clean
-      }
-    } catch (e) {
-      // Ignore evaluation errors caused by fast DOM changes
-    }
-  }, 500); 
 
 })();
