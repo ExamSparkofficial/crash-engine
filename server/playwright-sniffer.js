@@ -14,25 +14,17 @@ let currentStreakType = "low";
 let currentStreakLength = 0;
 let historyQueue = []; // Last 5 rounds for MA_5
 
-// Global Liquidity Tracking (Real-time updates)
+// Global Liquidity Tracking
 let currentActivePlayers = 0;
 let currentTotalBets = 0;
 
 // =========================
 // HELPERS
 // =========================
-function sanitizeText(str) {
-  return str
-    .replace(/[^\x20-\x7E]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function appendData(data) {
   fs.appendFileSync(OUTPUT_FILE, JSON.stringify(data) + "\n");
 }
 
-// Custom Hex Parsers
 function hexToDouble(hexString) {
   try {
     const buf = Buffer.from(hexString, "hex");
@@ -77,7 +69,6 @@ async function processAndSaveRound(crashData) {
 
     const streakUnder2x = currentStreakType === "low" ? currentStreakLength : 0;
 
-    // 4. Assemble the ULTIMATE ML Object
     const mlReadyData = {
       type: "ws_round_crash",
       ts: ts,
@@ -92,7 +83,6 @@ async function processAndSaveRound(crashData) {
     console.log(`\n🚀 [CRASH DETECTED]: ${multiplier}x`);
     console.log(`📊 [ML DATA] Prev: ${prevMultiplier || 'N/A'}x | MA_5: ${ma5 || 'calc...'} | Players: ${players} | Bets: ${betsCount}`);
 
-    // Save full ML structure to JSON file
     appendData(mlReadyData);
 
     // 5. Save to PostgreSQL
@@ -116,32 +106,31 @@ async function processAndSaveRound(crashData) {
 }
 
 // =========================
-// MAIN SCRAPER ENGINE
+// MAIN SCRAPER ENGINE (CLOUD OPTIMIZED)
 // =========================
 (async () => {
-  console.log("🚀 Connecting to REAL Chrome via CDP...");
+  console.log("🚀 Launching Headless Chrome on Cloud Server...");
 
   let browser;
   try {
-    // Cloud server ke liye headless launch
+    // CLOUD LAUNCH LOGIC (No CDP, fully headless)
     browser = await chromium.launch({
-      headless: true, // Server par UI nahi hota
+      headless: true,
       args: [
         '--no-sandbox', 
         '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage'
-      ] // Linux servers par Playwright chalane ke liye yeh args zaroori hain
+        '--disable-dev-shm-usage', // Crucial for Linux VMs
+        '--disable-gpu'
+      ]
     });
   } catch (err) {
     console.error("❌ Failed to launch browser:", err);
     return;
   }
-  const context = browser.contexts()[0];
-  let page = context.pages()[0];
 
-  if (!page) {
-    page = await context.newPage();
-  }
+  // Creating a new context and page cleanly
+  const context = await browser.newContext();
+  const page = await context.newPage();
 
   console.log("🔥 Connected! Navigating to game...");
   await page.goto("https://1win.com/casino/play/v_spribe:aviator", {
@@ -157,15 +146,12 @@ async function processAndSaveRound(crashData) {
 
         const hexString = buffer.toString("hex");
         
-        // ----------------------------------------------------
         // EXTRACTION 1: LIVE LIQUIDITY (Players & Bets)
-        // ----------------------------------------------------
-        const playersKey = "616374697665506c6179657273436f756e74"; // "activePlayersCount"
-        const betsKey = "6f70656e42657473436f756e74"; // "openBetsCount"
+        const playersKey = "616374697665506c6179657273436f756e74"; 
+        const betsKey = "6f70656e42657473436f756e74"; 
 
         if (hexString.includes(playersKey)) {
           const idx = hexString.indexOf(playersKey) + playersKey.length;
-          // Spribe uses '04' as Int32 marker
           if (hexString.substring(idx, idx + 2) === "04") {
             const intHex = hexString.substring(idx + 2, idx + 10);
             currentActivePlayers = parseInt(intHex, 16) || currentActivePlayers;
@@ -180,10 +166,8 @@ async function processAndSaveRound(crashData) {
           }
         }
 
-        // ----------------------------------------------------
         // EXTRACTION 2: CRASH POINT
-        // ----------------------------------------------------
-        const crashKey = "6d61784d756c7469706c696572"; // "maxMultiplier"
+        const crashKey = "6d61784d756c7469706c696572"; 
 
         if (hexString.includes(crashKey)) {
           const keyIndex = hexString.indexOf(crashKey);
@@ -206,10 +190,8 @@ async function processAndSaveRound(crashData) {
                   betsCount: currentTotalBets
                 };
                 
-                // Process features and save!
                 processAndSaveRound(crashObject);
 
-                // Reset liquidity for the next round
                 currentActivePlayers = 0;
                 currentTotalBets = 0;
               }
