@@ -106,21 +106,21 @@ async function processAndSaveRound(crashData) {
 }
 
 // =========================
-// MAIN SCRAPER ENGINE (CLOUD OPTIMIZED)
+// MAIN SCRAPER ENGINE (CLOUD OPTIMIZED + STEALTH)
 // =========================
 (async () => {
   console.log("🚀 Launching Headless Chrome on Cloud Server...");
 
   let browser;
   try {
-    // CLOUD LAUNCH LOGIC (No CDP, fully headless)
     browser = await chromium.launch({
       headless: true,
       args: [
         '--no-sandbox', 
         '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage', // Crucial for Linux VMs
-        '--disable-gpu'
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-blink-features=AutomationControlled' // 🔥 Anti-bot bypass
       ]
     });
   } catch (err) {
@@ -128,14 +128,30 @@ async function processAndSaveRound(crashData) {
     return;
   }
 
-  // Creating a new context and page cleanly
-  const context = await browser.newContext();
+  // 🔥 Setting a real User-Agent and Viewport to trick Cloudflare
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    viewport: { width: 1920, height: 1080 }
+  });
+  
   const page = await context.newPage();
 
-  console.log("🔥 Connected! Navigating to game...");
-  await page.goto("https://1win.com/casino/play/v_spribe:aviator", {
-    waitUntil: "domcontentloaded",
+  // 🔥 Adding extra stealth script before page load
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
   });
+
+  console.log("🔥 Connected! Navigating to game...");
+  
+  try {
+    await page.goto("https://1win.com/casino/play/v_spribe:aviator", {
+      waitUntil: "domcontentloaded",
+      timeout: 60000 // Give it 60 seconds to load on the cloud
+    });
+    console.log("✅ Page Loaded Successfully!");
+  } catch (e) {
+    console.error("❌ Page Load Timeout or Error:", e.message);
+  }
 
   page.on("websocket", (ws) => {
     ws.on("framereceived", (payload) => {
