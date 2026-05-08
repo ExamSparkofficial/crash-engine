@@ -1,3 +1,6 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { chromium } from "playwright";
 import fs from "fs";
 import path from "path";
@@ -142,8 +145,6 @@ async function processAndSaveRound(crashData) {
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
   });
 
-console.log("🔥 Connected! Navigating to game...");
-  
   try {
     await page.goto("https://1win.com/casino/play/v_spribe:aviator", {
       waitUntil: "domcontentloaded",
@@ -156,14 +157,12 @@ console.log("🔥 Connected! Navigating to game...");
 
     // 🔥 AUTO-CLICKER LOGIC 🔥
     try {
-      // 1. Try to find and click the exact "Play" button
       const playButton = page.locator('button:has-text("Play")').first();
       
       if (await playButton.isVisible({ timeout: 3000 })) {
         console.log("🖱️ Found 'Play' button! Clicking it...");
         await playButton.click();
       } else {
-        // 2. Fallback: If button text changes, just click the exact center of the screen
         console.log("⚠️ 'Play' text not found, clicking the center of the screen...");
         await page.mouse.click(1920 / 2, 1080 / 2);
       }
@@ -174,11 +173,31 @@ console.log("🔥 Connected! Navigating to game...");
 
     console.log("🚀 Game overlay bypassed! Waiting for real-time WebSockets...");
 
+    // 🔥 ANTI-AFK (HUMAN SIMULATOR) 🔥
+    // Har 10 second mein mouse ko random jagah hilayega taaki connection zinda rahe
+    setInterval(async () => {
+      try {
+        const randomX = Math.floor(Math.random() * 800) + 200;
+        const randomY = Math.floor(Math.random() * 600) + 200;
+        await page.mouse.move(randomX, randomY);
+      } catch (e) {}
+    }, 10000);
+
   } catch (e) {
     console.error("❌ Page Load Timeout or Error:", e.message);
   }
 
   page.on("websocket", (ws) => {
+    // Check if the websocket is actually from Spribe/Aviator
+    if (ws.url().includes("spribe")) {
+      console.log(`🔌 Connected to Live Game Data Server!`);
+    }
+
+    // 🔥 Agar server connection cut karega toh yahan pata chal jayega
+    ws.on("close", () => {
+      console.log("❌ ALERT: WebSocket CLOSED by server! Unhone data rok diya hai.");
+    });
+
     ws.on("framereceived", (payload) => {
       try {
         const buffer = Buffer.isBuffer(payload.payload)
