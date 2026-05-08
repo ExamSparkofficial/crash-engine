@@ -147,17 +147,32 @@ console.log("🔥 Connected! Navigating to game...");
   try {
     await page.goto("https://1win.com/casino/play/v_spribe:aviator", {
       waitUntil: "domcontentloaded",
-      timeout: 60000 
+      timeout: 60000 // Give it 60 seconds to load on the cloud
     });
-    
-    console.log("✅ Page Loaded! Waiting 15 seconds for game elements to appear...");
-    
-    // 15 seconds wait karenge taaki iframe/game puri tarah load ho jaye
-    await page.waitForTimeout(15000); 
+    console.log("✅ Page Loaded Successfully!");
 
-    // 🔥 SCREENSHOT KHEENCH RAHE HAIN 🔥
-    await page.screenshot({ path: 'debug-cloud.png', fullPage: true });
-    console.log("📸 Screenshot saved as 'debug-cloud.png'!");
+    console.log("⏳ Waiting 5 seconds for the 'Play' overlay to appear...");
+    await page.waitForTimeout(5000); 
+
+    // 🔥 AUTO-CLICKER LOGIC 🔥
+    try {
+      // 1. Try to find and click the exact "Play" button
+      const playButton = page.locator('button:has-text("Play")').first();
+      
+      if (await playButton.isVisible({ timeout: 3000 })) {
+        console.log("🖱️ Found 'Play' button! Clicking it...");
+        await playButton.click();
+      } else {
+        // 2. Fallback: If button text changes, just click the exact center of the screen
+        console.log("⚠️ 'Play' text not found, clicking the center of the screen...");
+        await page.mouse.click(1920 / 2, 1080 / 2);
+      }
+    } catch (btnErr) {
+      console.log("⚠️ Fallback: Clicking center of screen...");
+      await page.mouse.click(1920 / 2, 1080 / 2);
+    }
+
+    console.log("🚀 Game overlay bypassed! Waiting for real-time WebSockets...");
 
   } catch (e) {
     console.error("❌ Page Load Timeout or Error:", e.message);
