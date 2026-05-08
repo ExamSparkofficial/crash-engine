@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Round {
+  id              String   @id @default(cuid())
+  roundId         String?  @unique
+  multiplier      Float?
+  players         Int?
+  bets            Int?
+  cashouts        Int?
+  volatility      Float?
+  rawPayload      Json?
+  eventType       String?
+  source          String?
+  createdAt       DateTime @default(now())
+  volatilityScore Float    @default(0)
+  streakType      String   @default("low")
+  streakLength    Int      @default(1)
+
+  @@index([createdAt])
+  @@index([multiplier])
+  @@index([roundId])
+  @@index([streakType, streakLength])
+}
+
+model Statistics {
+  id              String   @id @default(cuid())
+  avg10           Float
+  avg25           Float   @default(0)
+  avg50           Float
+  avg100          Float
+  lowCrashRate    Float
+  highCrashRate   Float
+  volatilityIndex Float
+  entropyScore    Float   @default(0)
+  riskScore       Float   @default(0)
+  updatedAt       DateTime @updatedAt
+
+  @@index([updatedAt])
+}
+
+model DatasetSnapshot {
+  id        String   @id @default(cuid())
+  name      String
+  format    String
+  path      String
+  rows      Int
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([format])
+}
+
+model Strategy {
+  id           String   @id @default(cuid())
+  strategyName String
+  totalProfit  Float
+  totalLoss    Float
+  winRate      Float
+  roi          Float
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([strategyName])
+}

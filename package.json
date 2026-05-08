@@ -1,0 +1,61 @@
+{
+  "name": "crashpulse-ai",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CrashPulse AI is a realtime probability analytics dashboard for crash-style multiplier games.",
+  "scripts": {
+    "dev": "tsx watch server.ts",
+    "build": "prisma generate && next build",
+    "start": "cross-env NODE_ENV=production tsx server.ts",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "analytics:dev": "uvicorn analytics-service.main:app --reload --port 8000",
+    "ingestion:browser": "tsx server/playwright-ingestion.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.0.1",
+    "@radix-ui/react-slot": "^1.1.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cross-env": "^7.0.3",
+    "framer-motion": "^11.15.0",
+    "lucide-react": "^0.468.0",
+    "next": "^15.1.0",
+    "next-auth": "^4.24.11",
+    "playwright": "^1.59.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "recharts": "^2.15.0",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "tailwind-merge": "^2.6.0",
+    "tailwindcss-animate": "^1.0.7",
+    "ws": "^8.20.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.2.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@types/ws": "^8.5.13",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.17.0",
+    "eslint-config-next": "^15.1.0",
+    "postcss": "^8.4.49",
+    "prisma": "^6.0.1",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "prisma": {
+    "schema": "prisma/schema.prisma"
+  }
+}

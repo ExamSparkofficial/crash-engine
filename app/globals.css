@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 220 36% 7%;
+  --foreground: 210 40% 96%;
+  --card: 220 35% 10%;
+  --card-foreground: 210 40% 96%;
+  --primary: 187 94% 55%;
+  --primary-foreground: 222 47% 8%;
+  --secondary: 225 22% 16%;
+  --secondary-foreground: 210 40% 96%;
+  --muted: 222 22% 15%;
+  --muted-foreground: 215 18% 68%;
+  --accent: 150 78% 42%;
+  --accent-foreground: 222 47% 8%;
+  --destructive: 350 89% 60%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 215 25% 20%;
+  --input: 215 25% 20%;
+  --ring: 187 94% 55%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html {
+  min-height: 100%;
+  background: #050910;
+  color-scheme: dark;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% 8%, rgba(34, 211, 238, 0.13), transparent 24rem),
+    radial-gradient(circle at 85% 6%, rgba(132, 204, 22, 0.1), transparent 20rem),
+    radial-gradient(circle at 50% 100%, rgba(244, 63, 94, 0.1), transparent 26rem),
+    linear-gradient(135deg, #050910 0%, #09111e 46%, #111827 100%);
+  color: hsl(var(--foreground));
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+::selection {
+  background: rgba(34, 211, 238, 0.28);
+}
+
+.glass-panel {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(7, 17, 31, 0.72);
+  backdrop-filter: blur(18px);
+}
+
+.grid-fade {
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: linear-gradient(to bottom, black, transparent 80%);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.24);
+  border-radius: 999px;
+}

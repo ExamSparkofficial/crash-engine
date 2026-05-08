@@ -1,0 +1,14 @@
+2026/05/07-21:17:37.902 2c68 Reusing MANIFEST C:\Users\Surya\OneDrive\Desktop\aviator\.playwright-profile\Default\IndexedDB\https_1win.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/05/07-21:17:37.904 2c68 Recovering log #13
+2026/05/07-21:17:37.907 2c68 Reusing old log C:\Users\Surya\OneDrive\Desktop\aviator\.playwright-profile\Default\IndexedDB\https_1win.com_0.indexeddb.leveldb/000013.log 
+2026/05/07-21:17:37.911 2c68 Delete type=2 #11
+2026/05/07-21:17:41.024 2c68 Level-0 table #18: started
+2026/05/07-21:17:41.032 2c68 Level-0 table #18: 3253 bytes OK
+2026/05/07-21:17:41.035 2c68 Delete type=0 #13
+2026/05/07-21:17:41.037 2c68 Manual compaction at level-0 from '\x00\x06\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x07\x00\x00\x00' @ 0 : 0; will stop at '\x00\x06\x00\x00\x05' @ 315 : 1
+2026/05/07-21:17:41.038 2c68 Compacting 1@0 + 1@1 files
+2026/05/07-21:17:41.044 2c68 Generated table #19@0: 101 keys, 3057 bytes
+2026/05/07-21:17:41.044 2c68 Compacted 1@0 + 1@1 files => 3057 bytes
+2026/05/07-21:17:41.046 2c68 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/05/07-21:17:41.048 2c68 Delete type=2 #18
+2026/05/07-21:17:41.049 2c68 Manual compaction at level-0 from '\x00\x06\x00\x00\x05' @ 315 : 1 .. '\x00\x07\x00\x00\x00' @ 0 : 0; will stop at (end)
