@@ -1,6 +1,10 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 
+// 🔥 THE ULTIMATE HACK: Zabardasti Node.js ke dimaag mein URL daal rahe hain
+const DB_URL = "postgresql://postgres:%401Momdad23%214@34.93.113.190:5432/postgres?schema=public";
+process.env.DATABASE_URL = DB_URL;
+
 import { chromium } from "playwright";
 import fs from "fs";
 import path from "path";
@@ -9,9 +13,16 @@ import { PrismaClient } from "@prisma/client";
 // =========================
 // INITIALIZATION
 // =========================
-const prisma = new PrismaClient();
-const OUTPUT_FILE = path.resolve("./aviator-live-data.ndjson");
+// 🔥 Prisma ko direct URL pass kar rahe hain, ab wo .env ko dekhega hi nahi!
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: DB_URL,
+    },
+  },
+});
 
+const OUTPUT_FILE = path.resolve("./aviator-live-data.ndjson");
 // In-memory ML Tracking
 let currentStreakType = "low";
 let currentStreakLength = 0;
