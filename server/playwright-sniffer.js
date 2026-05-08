@@ -142,14 +142,23 @@ async function processAndSaveRound(crashData) {
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
   });
 
-  console.log("🔥 Connected! Navigating to game...");
+console.log("🔥 Connected! Navigating to game...");
   
   try {
     await page.goto("https://1win.com/casino/play/v_spribe:aviator", {
       waitUntil: "domcontentloaded",
-      timeout: 60000 // Give it 60 seconds to load on the cloud
+      timeout: 60000 
     });
-    console.log("✅ Page Loaded Successfully!");
+    
+    console.log("✅ Page Loaded! Waiting 15 seconds for game elements to appear...");
+    
+    // 15 seconds wait karenge taaki iframe/game puri tarah load ho jaye
+    await page.waitForTimeout(15000); 
+
+    // 🔥 SCREENSHOT KHEENCH RAHE HAIN 🔥
+    await page.screenshot({ path: 'debug-cloud.png', fullPage: true });
+    console.log("📸 Screenshot saved as 'debug-cloud.png'!");
+
   } catch (e) {
     console.error("❌ Page Load Timeout or Error:", e.message);
   }
